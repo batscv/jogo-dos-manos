@@ -14,19 +14,14 @@ async function verifyAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, username")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isUserAdmin = profile?.is_admin === true || user.email === "britoediey@gmail.com";
+  const isUserAdmin = profile?.is_admin === true || profile?.username === "edyadmin";
 
   if (!isUserAdmin) {
     throw new Error("Acesso não autorizado: Você precisa ser administrador.");
-  }
-
-  // Se o usuário possui o email admin mas is_admin ainda estava false, promove automaticamente
-  if (!profile?.is_admin && user.email === "britoediey@gmail.com") {
-    await supabase.from("profiles").update({ is_admin: true }).eq("id", user.id);
   }
 
   let db = supabase;

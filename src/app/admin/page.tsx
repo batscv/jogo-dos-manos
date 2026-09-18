@@ -21,19 +21,14 @@ export default async function AdminPage({
   // 1. Verifica se é administrador
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, username")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isUserAdmin = userProfile?.is_admin === true || user.email === "britoediey@gmail.com";
+  const isUserAdmin = userProfile?.is_admin === true || userProfile?.username === "edyadmin";
 
   if (!isUserAdmin) {
     redirect("/dashboard");
-  }
-
-  // Auto-promove se for britoediey@gmail.com e ainda não estava marcado no banco
-  if (!userProfile?.is_admin && user.email === "britoediey@gmail.com") {
-    await supabase.from("profiles").update({ is_admin: true }).eq("id", user.id);
   }
 
   // 2. Busca lista de todos os perfis cadastrados
