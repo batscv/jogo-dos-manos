@@ -16,10 +16,17 @@ async function verifyAdmin() {
     .from("profiles")
     .select("is_admin")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile || !profile.is_admin) {
+  const isUserAdmin = profile?.is_admin === true || user.email === "britoediey@gmail.com";
+
+  if (!isUserAdmin) {
     throw new Error("Acesso não autorizado: Você precisa ser administrador.");
+  }
+
+  // Se o usuário possui o email admin mas is_admin ainda estava false, promove automaticamente
+  if (!profile?.is_admin && user.email === "britoediey@gmail.com") {
+    await supabase.from("profiles").update({ is_admin: true }).eq("id", user.id);
   }
 
   let db = supabase;
@@ -44,22 +51,27 @@ export async function togglePaymentStatus(
     const newStatus = !currentStatus;
     const paidMonth = newStatus ? (monthText || getCurrentMonthText()) : null;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update({
         is_paid: newStatus,
         paid_month: paidMonth,
       })
-      .eq("id", userId);
+      .eq("id", userId)
+      .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Nenhum registro atualizado. Verifique se o perfil existe no banco.");
+    }
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
     revalidatePath(`/profile/${userId}`);
     revalidatePath("/");
-    return { success: true, isPaid: newStatus, paidMonth };
+    return { success: true, isPaid: newStatus, paidMonth, updatedProfile: data[0] };
   } catch (error: any) {
+    console.error("togglePaymentStatus error:", error);
     return { error: error.message };
   }
 }
@@ -69,22 +81,27 @@ export async function updatePaymentMonth(userId: string, monthText: string) {
   try {
     const { supabase } = await verifyAdmin();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update({
         is_paid: true,
         paid_month: monthText,
       })
-      .eq("id", userId);
+      .eq("id", userId)
+      .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Não foi possível atualizar o mês. Verifique as permissões.");
+    }
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
     revalidatePath(`/profile/${userId}`);
     revalidatePath("/");
-    return { success: true };
+    return { success: true, updatedProfile: data[0] };
   } catch (error: any) {
+    console.error("updatePaymentMonth error:", error);
     return { error: error.message };
   }
 }
@@ -142,25 +159,34 @@ export async function updateMatchStatus(matchId: string, status: "open" | "close
   try {
     const { supabase } = await verifyAdmin();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("matches")
       .update({ status })
-      .eq("id", matchId);
+      .eq("id", matchId)
+      .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Não foi possível atualizar o status da partida.");
+    }
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
-    return { success: true };
+    return { success: true, updatedMatch: data[0] };
   } catch (error: any) {
+    console.error("updateMatchStatus error:", error);
     return { error: error.message };
   }
 }
 
-// 4. Excluir partida
+// 4. Excluir partida com cascata
 export async function deleteMatch(matchId: string) {
   try {
     const { supabase } = await verifyAdmin();
+
+    // Cascata: remove dependências
+    await supabase.from("match_attendees").delete().eq("match_id", matchId);
+    await supabase.from("match_stats").delete().eq("match_id", matchId);
 
     const { error } = await supabase
       .from("matches")
@@ -172,8 +198,9 @@ export async function deleteMatch(matchId: string) {
     revalidatePath("/admin");
     revalidatePath("/dashboard");
     revalidatePath("/");
-    return { success: true };
+    return { success: true, deletedMatchId: matchId };
   } catch (error: any) {
+    console.error("deleteMatch error:", error);
     return { error: error.message };
   }
 }
@@ -249,7 +276,7 @@ export async function addFinancialEntry(formData: FormData) {
       return { error: "Descrição e valor válido são obrigatórios." };
     }
 
-    const { error } = await supabase
+    const { data: newEntry, error } = await supabase
       .from("financial_ledger")
       .insert({
         description,
@@ -257,13 +284,16 @@ export async function addFinancialEntry(formData: FormData) {
         category,
         entry_date: entryDate,
         created_by: user.id,
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw error;
 
     revalidatePath("/admin");
-    return { success: true };
+    return { success: true, newEntry };
   } catch (error: any) {
+    console.error("addFinancialEntry error:", error);
     return { error: error.message };
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   togglePaymentStatus,
@@ -59,6 +59,38 @@ export function AdminView({
   const matchFormRef = useRef<HTMLFormElement>(null);
   const ledgerFormRef = useRef<HTMLFormElement>(null);
 
+  // Estados locais para atualização visual imediata sem depender exclusivamente do router.refresh
+  const [localProfiles, setLocalProfiles] = useState<Profile[]>(profiles);
+  const [localMatches, setLocalMatches] = useState<Match[]>(allMatches);
+  const [localCurrentMatch, setLocalCurrentMatch] = useState<Match | null>(currentMatch);
+  const [localAttendees, setLocalAttendees] = useState<(MatchAttendee & { card?: PlayerCard; profile?: Profile })[]>(attendees);
+  const [localLedger, setLocalLedger] = useState<FinancialLedger[]>(ledgerEntries);
+  const [localBalance, setLocalBalance] = useState<number>(totalBalance);
+
+  useEffect(() => {
+    setLocalProfiles(profiles);
+  }, [profiles]);
+
+  useEffect(() => {
+    setLocalMatches(allMatches);
+  }, [allMatches]);
+
+  useEffect(() => {
+    setLocalCurrentMatch(currentMatch);
+  }, [currentMatch]);
+
+  useEffect(() => {
+    setLocalAttendees(attendees);
+  }, [attendees]);
+
+  useEffect(() => {
+    setLocalLedger(ledgerEntries);
+  }, [ledgerEntries]);
+
+  useEffect(() => {
+    setLocalBalance(totalBalance);
+  }, [totalBalance]);
+
   const [tab, setTab] = useState<"payments" | "match" | "teams" | "stats" | "financial">("payments");
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [searchPlayer, setSearchPlayer] = useState("");
@@ -67,36 +99,74 @@ export function AdminView({
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Filtro de jogadores na tabela de pagamentos
-  const filteredProfiles = profiles.filter(
+  const filteredProfiles = localProfiles.filter(
     (p) =>
       p.full_name.toLowerCase().includes(searchPlayer.toLowerCase()) ||
       p.username.toLowerCase().includes(searchPlayer.toLowerCase())
   );
 
-  const confirmedPlayers = attendees
+  const confirmedPlayers = localAttendees
     .filter((a) => a.status === "confirmed")
     .map((a) => a.card || (a.profile as any));
 
   async function handleTogglePayment(userId: string, current: boolean, monthText?: string | null) {
     setLoadingId(userId);
     setActionError(null);
+    const newStatus = !current;
+    const expectedMonth = newStatus ? (monthText || getCurrentMonthText()) : null;
+
+    // Atualização otimista imediata na tabela
+    setLocalProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, is_paid: newStatus, paid_month: expectedMonth } : p
+      )
+    );
+
     const res = await togglePaymentStatus(userId, current, monthText);
     setLoadingId(null);
+
     if (res?.error) {
-      setActionError(res.error);
+      // Reverte caso dê erro no banco
+      setLocalProfiles((prev) =>
+        prev.map((p) =>
+          p.id === userId ? { ...p, is_paid: current, paid_month: p.paid_month } : p
+        )
+      );
+      setActionError(`Erro ao atualizar pagamento: ${res.error}`);
     } else {
+      if (res.updatedProfile) {
+        setLocalProfiles((prev) =>
+          prev.map((p) => (p.id === userId ? { ...p, ...res.updatedProfile } : p))
+        );
+      }
+      setActionMessage(`Status de pagamento atualizado com sucesso!`);
       router.refresh();
+      setTimeout(() => setActionMessage(null), 3000);
     }
   }
 
   async function handleMonthChange(userId: string, newMonth: string) {
     setLoadingId(userId);
     setActionError(null);
+
+    // Atualização otimista imediata
+    setLocalProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, is_paid: true, paid_month: newMonth } : p
+      )
+    );
+
     const res = await updatePaymentMonth(userId, newMonth);
     setLoadingId(null);
+
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro ao atualizar mês: ${res.error}`);
     } else {
+      if (res.updatedProfile) {
+        setLocalProfiles((prev) =>
+          prev.map((p) => (p.id === userId ? { ...p, ...res.updatedProfile } : p))
+        );
+      }
       setActionMessage(`Mês de pagamento atualizado para ${newMonth}!`);
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
@@ -113,7 +183,7 @@ export function AdminView({
   }
 
   async function handleSaveTeams() {
-    if (!currentMatch || !draftResult) return;
+    if (!localCurrentMatch || !draftResult) return;
     setLoadingId("saving-teams");
     setActionError(null);
 
@@ -122,13 +192,19 @@ export function AdminView({
       ...draftResult.teamB.map((p) => ({ userId: p.id, team: "B" as const })),
     ];
 
-    const res = await assignTeams(currentMatch.id, assignments);
+    const res = await assignTeams(localCurrentMatch.id, assignments);
     setLoadingId(null);
 
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro ao salvar times: ${res.error}`);
     } else {
-      setActionMessage("Times balanceados salvos com sucesso!");
+      setLocalAttendees((prev) =>
+        prev.map((att) => {
+          const assign = assignments.find((a) => a.userId === att.user_id);
+          return assign ? { ...att, team: assign.team } : att;
+        })
+      );
+      setActionMessage("Times balanceados salvos no banco com sucesso!");
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
     }
@@ -143,27 +219,37 @@ export function AdminView({
     setLoadingId(null);
 
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro ao criar partida: ${res.error}`);
     } else {
-      setActionMessage("Partida criada com sucesso!");
+      setActionMessage("Partida criada e salva no banco com sucesso!");
       matchFormRef.current?.reset();
+      if (res.match) {
+        setLocalMatches((prev) => [res.match, ...prev]);
+        if (!localCurrentMatch) {
+          setLocalCurrentMatch(res.match);
+        }
+      }
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
     }
   }
 
   async function handleUpdateMatchStatus(status: "open" | "closed" | "finished") {
-    if (!currentMatch) return;
+    if (!localCurrentMatch) return;
     setLoadingId("status-" + status);
     setActionError(null);
 
-    const res = await updateMatchStatus(currentMatch.id, status);
+    const res = await updateMatchStatus(localCurrentMatch.id, status);
     setLoadingId(null);
 
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro ao alterar status: ${res.error}`);
     } else {
       setActionMessage(`Status da partida atualizado para ${status.toUpperCase()}!`);
+      setLocalCurrentMatch((prev) => (prev ? { ...prev, status } : null));
+      setLocalMatches((prev) =>
+        prev.map((m) => (m.id === localCurrentMatch.id ? { ...m, status } : m))
+      );
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
     }
@@ -178,9 +264,14 @@ export function AdminView({
     setLoadingId(null);
 
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro ao excluir partida: ${res.error}`);
     } else {
-      setActionMessage("Partida excluída com sucesso!");
+      setActionMessage("Partida excluída com sucesso do banco de dados!");
+      setLocalMatches((prev) => prev.filter((m) => m.id !== matchId));
+      if (localCurrentMatch?.id === matchId) {
+        const remaining = localMatches.filter((m) => m.id !== matchId);
+        setLocalCurrentMatch(remaining[0] || null);
+      }
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
     }
@@ -195,10 +286,14 @@ export function AdminView({
     setLoadingId(null);
 
     if (res?.error) {
-      setActionError(res.error);
+      setActionError(`Erro no livro caixa: ${res.error}`);
     } else {
-      setActionMessage("Lançamento financeiro registrado com sucesso!");
+      setActionMessage("Lançamento financeiro registrado com sucesso no banco!");
       ledgerFormRef.current?.reset();
+      if (res.newEntry) {
+        setLocalLedger((prev) => [res.newEntry, ...prev]);
+        setLocalBalance((prev) => prev + Number(res.newEntry.amount));
+      }
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
     }
@@ -466,14 +561,14 @@ export function AdminView({
           {/* Partida Atual */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 space-y-4">
             <h2 className="text-lg font-bold text-white">Partida Ativa Atual</h2>
-            {currentMatch ? (
+            {localCurrentMatch ? (
               <div className="space-y-4">
                 <div className="rounded-xl bg-zinc-800/50 p-4 border border-zinc-800 space-y-2">
-                  <p className="text-sm font-black text-white">{formatDate(currentMatch.match_date)}</p>
-                  <p className="text-xs text-zinc-400">Local: {currentMatch.location}</p>
-                  <p className="text-xs text-zinc-400">Cutoff: {formatDate(currentMatch.cutoff_time)}</p>
+                  <p className="text-sm font-black text-white">{formatDate(localCurrentMatch.match_date)}</p>
+                  <p className="text-xs text-zinc-400">Local: {localCurrentMatch.location}</p>
+                  <p className="text-xs text-zinc-400">Cutoff: {formatDate(localCurrentMatch.cutoff_time)}</p>
                   <p className="text-xs">
-                    Status: <span className="font-bold text-yellow-400 uppercase">{currentMatch.status}</span>
+                    Status: <span className="font-bold text-yellow-400 uppercase">{localCurrentMatch.status}</span>
                   </p>
                 </div>
 
@@ -507,12 +602,12 @@ export function AdminView({
           </div>
 
           {/* Lista Completa de Partidas para Gestão e Exclusão */}
-          {allMatches.length > 0 && (
+          {localMatches.length > 0 && (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 md:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-yellow-400" />
-                  Todas as Partidas Cadastradas ({allMatches.length})
+                  Todas as Partidas Cadastradas ({localMatches.length})
                 </h3>
                 <span className="text-xs text-zinc-400">
                   Gerencie o status ou remova partidas duplicadas de teste
@@ -532,8 +627,8 @@ export function AdminView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/60">
-                    {allMatches.map((m) => {
-                      const isSelected = currentMatch?.id === m.id;
+                    {localMatches.map((m) => {
+                      const isSelected = localCurrentMatch?.id === m.id;
                       return (
                         <tr key={m.id} className={isSelected ? "bg-yellow-500/10" : "hover:bg-zinc-800/30"}>
                           <td className="py-2.5 px-3 font-bold text-white">
@@ -711,7 +806,7 @@ export function AdminView({
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
                 {confirmedPlayers.map((player) => (
-                  <StatRow key={player.id} player={player} matchId={currentMatch?.id} />
+                  <StatRow key={player.id} player={player} matchId={localCurrentMatch?.id} />
                 ))}
               </tbody>
             </table>
@@ -726,8 +821,8 @@ export function AdminView({
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-zinc-400 uppercase">Saldo da Caixinha</p>
-              <p className={`text-3xl font-black ${totalBalance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {formatCurrency(totalBalance)}
+              <p className={`text-3xl font-black ${localBalance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {formatCurrency(localBalance)}
               </p>
             </div>
             <p className="text-xs text-zinc-500 max-w-sm text-center sm:text-right">
@@ -814,7 +909,7 @@ export function AdminView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/60">
-                    {ledgerEntries.map((entry) => (
+                    {localLedger.map((entry) => (
                       <tr key={entry.id} className="hover:bg-zinc-800/30">
                         <td className="py-2.5 px-3 text-zinc-400">{entry.entry_date}</td>
                         <td className="py-2.5 px-3 font-semibold text-white">{entry.description}</td>
@@ -851,7 +946,7 @@ function StatRow({ player, matchId }: { player: any; matchId?: string }) {
   async function handleSave() {
     if (!matchId) return;
     setSaving(true);
-    await recordMatchStat({
+    const res = await recordMatchStat({
       matchId,
       userId: player.id,
       goals,
@@ -860,8 +955,12 @@ function StatRow({ player, matchId }: { player: any; matchId?: string }) {
       isFairPlay,
     });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (res?.error) {
+      alert("Erro ao salvar estatística: " + res.error);
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   }
 
   return (

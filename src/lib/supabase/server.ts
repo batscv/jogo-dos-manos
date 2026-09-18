@@ -33,24 +33,23 @@ export function createClient() {
 
 // Cliente com Service Role para operações administrativas
 export function createAdminClient() {
-  const cookieStore = cookies();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!serviceKey) {
-    throw new Error("Chave do Supabase não configurada.");
+  // Se houver uma chave service_role válida (não idêntica à anon_key pública)
+  if (serviceKey && serviceKey !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && serviceKey.length > 50) {
+    const { createClient: createSupabaseAdmin } = require("@supabase/supabase-js");
+    return createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    );
   }
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceKey,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
+  // Caso contrário, utiliza o cliente autenticado da sessão atual
+  return createClient();
 }
