@@ -3,6 +3,7 @@ import { DashboardView } from "@/components/DashboardView";
 import { Match, MatchAttendee, PlayerCard, Profile } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export default async function DashboardPage({
   searchParams,

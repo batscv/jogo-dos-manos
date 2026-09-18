@@ -4,6 +4,7 @@ import { AdminView } from "@/components/AdminView";
 import { Profile, Match, MatchAttendee, PlayerCard, FinancialLedger } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export default async function AdminPage({
   searchParams,

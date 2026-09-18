@@ -3,6 +3,7 @@ import { Trophy, Goal, Award, HeartHandshake, Star } from "lucide-react";
 import Link from "next/link";
 
 export const revalidate = 60; // Revalida a cada 60s
+export const runtime = "edge";
 
 export default async function LeaderboardPage() {
   const supabase = createClient();

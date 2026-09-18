@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description: "Sistema de gerenciamento para pelada de futsal semanal com cartões estilo FIFA, controle de vagas e caixinha.",
 };
 
+export const runtime = "edge";
+
 export default async function RootLayout({
   children,
 }: Readonly<{

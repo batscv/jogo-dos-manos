@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ProfileView } from "@/components/ProfileView";
 import { PlayerCard } from "@/types/database";
 
+export const runtime = "edge";
+
 export default async function ProfilePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
