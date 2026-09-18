@@ -14,13 +14,11 @@ async function verifyAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, username")
+    .select("is_admin")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isUserAdmin = profile?.is_admin === true || profile?.username === "edyadmin";
-
-  if (!isUserAdmin) {
+  if (!profile || !profile.is_admin) {
     throw new Error("Acesso não autorizado: Você precisa ser administrador.");
   }
 

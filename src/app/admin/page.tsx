@@ -18,16 +18,14 @@ export default async function AdminPage({
     redirect("/login");
   }
 
-  // 1. Verifica se é administrador
+  // 1. Verifica se é administrador no Supabase
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("is_admin, username")
+    .select("is_admin")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isUserAdmin = userProfile?.is_admin === true || userProfile?.username === "edyadmin";
-
-  if (!isUserAdmin) {
+  if (!userProfile || !userProfile.is_admin) {
     redirect("/dashboard");
   }
 
