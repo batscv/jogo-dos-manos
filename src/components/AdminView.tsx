@@ -134,11 +134,6 @@ export function AdminView({
       );
       setActionError(`Erro ao atualizar pagamento: ${res.error}`);
     } else {
-      if (res.updatedProfile) {
-        setLocalProfiles((prev) =>
-          prev.map((p) => (p.id === userId ? { ...p, ...res.updatedProfile } : p))
-        );
-      }
       setActionMessage(`Status de pagamento atualizado com sucesso!`);
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
@@ -162,11 +157,6 @@ export function AdminView({
     if (res?.error) {
       setActionError(`Erro ao atualizar mês: ${res.error}`);
     } else {
-      if (res.updatedProfile) {
-        setLocalProfiles((prev) =>
-          prev.map((p) => (p.id === userId ? { ...p, ...res.updatedProfile } : p))
-        );
-      }
       setActionMessage(`Mês de pagamento atualizado para ${newMonth}!`);
       router.refresh();
       setTimeout(() => setActionMessage(null), 3000);
