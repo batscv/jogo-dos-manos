@@ -5,7 +5,7 @@ Aplicação de gestão de jogos, pagamentos, equipas e estatísticas com Next.js
 ## Executar localmente
 
 1. Use Node.js 22 ou superior e execute `npm ci`.
-2. Copie `.env.example` para `.env.local` e preencha a URL e a chave pública do Supabase. A chave `service_role` não é necessária.
+2. Copie `.env.example` para `.env.local` e preencha a URL e a chave pública do Supabase. A chave `service_role` não é necessária. `.env.production` contém apenas a configuração pública do projeto existente; variáveis do ambiente de deploy têm prioridade sobre esses valores.
 3. Configure `NEXT_PUBLIC_APP_URL` com o endereço real do ambiente.
 4. Execute `npm run dev`.
 
