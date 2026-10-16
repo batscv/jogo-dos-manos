@@ -72,7 +72,7 @@ export function DashboardView({ match, allMatches = [], attendees, userProfile }
     }
   }
 
-  function handleCopyWhatsApp() {
+  async function handleCopyWhatsApp() {
     if (!match) return;
 
     const confirmedFormatted = confirmedList.map((a) => ({
@@ -95,13 +95,20 @@ export function DashboardView({ match, allMatches = [], attendees, userProfile }
 
     const text = generateWhatsAppMessage({
       matchDate: match.match_date,
+      maxPlayers: match.max_players,
+      appUrl: window.location.origin,
       location: match.location,
       confirmedPlayers: confirmedFormatted,
       waitingPlayers: waitingFormatted,
       teams: teamA.length > 0 && teamB.length > 0 ? { teamA, teamB } : undefined,
     });
 
-    navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      setErrorMsg("Não foi possível copiar. Verifique a permissão da área de transferência.");
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   }

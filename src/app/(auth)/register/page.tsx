@@ -7,6 +7,7 @@ import { Loader2, UserPlus, User, AtSign, Mail, Lock, Image as ImageIcon, CheckC
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isBrother, setIsBrother] = useState(false);
@@ -26,11 +27,14 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setMessage(null);
 
     const formData = new FormData(e.currentTarget);
     formData.set("isBrother", String(isBrother));
 
     const result = await register(formData);
+    setLoading(false);
+    if (result?.message) setMessage(result.message);
     if (result?.error) {
       setError(result.error);
       setLoading(false);
@@ -54,6 +58,8 @@ export default function RegisterPage() {
           </div>
         )}
 
+        {message && <div role="status" className="rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</div>}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Avatar com Pré-visualização */}
           <div className="flex flex-col items-center gap-2">
@@ -72,7 +78,7 @@ export default function RegisterPage() {
               <input
                 type="file"
                 name="avatar"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handleImageChange}
                 className="hidden"
               />

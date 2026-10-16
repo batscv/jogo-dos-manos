@@ -12,7 +12,7 @@ export async function login(formData: FormData) {
     return { error: "Preencha todos os campos obrigatórios." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -38,14 +38,19 @@ export async function register(formData: FormData) {
     return { error: "Nome completo, username, email e senha são obrigatórios." };
   }
 
-  const supabase = createClient();
+  if (!/^[a-z0-9_]{3,30}$/.test(username)) return { error: "Use de 3 a 30 letras, números ou _ no username." };
+  if (password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+  if (avatarFile && avatarFile.size > 0 && (!["image/jpeg", "image/png", "image/webp"].includes(avatarFile.type) || avatarFile.size > 5 * 1024 * 1024)) {
+    return { error: "Escolha uma foto JPG, PNG ou WEBP de até 5MB." };
+  }
+  const supabase = await createClient();
 
   // Verifica se username já existe
   const { data: existingUser } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
-    .single();
+    .maybeSingle();
 
   if (existingUser) {
     return { error: "Este nome de usuário já está em uso." };
@@ -58,12 +63,11 @@ export async function register(formData: FormData) {
     email,
     password,
     options: {
+      emailRedirectTo: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback` : undefined,
       data: {
         full_name: fullName,
         username,
         is_brother: isBrother,
-        is_admin: false,
-        is_paid: false,
       },
     },
   });
@@ -72,10 +76,14 @@ export async function register(formData: FormData) {
     return { error: signUpError?.message || "Erro ao registrar usuário." };
   }
 
+  if (!authData.session) {
+    return { message: "Conta criada! Confirme o email antes de entrar. Depois poderá adicionar a foto no seu perfil." };
+  }
+
   // Se houver arquivo de avatar, faz o upload para o bucket avatars
   if (avatarFile && avatarFile.size > 0) {
     const fileExt = avatarFile.name.split(".").pop();
-    const fileName = `${authData.user.id}-${Date.now()}.${fileExt}`;
+    const fileName = `${authData.user.id}/${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
@@ -104,7 +112,7 @@ export async function register(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = createClient();
+  const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");

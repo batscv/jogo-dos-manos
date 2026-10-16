@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PlayerCard as PlayerCardType, PlayerRating } from "@/types/database";
 import { PlayerCard } from "./PlayerCard";
 import { RatingModal } from "./RatingModal";
@@ -27,6 +27,8 @@ export function ProfileView({ card, existingRating, viewerId, stats }: ProfileVi
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSuccess, setAvatarSuccess] = useState(false);
+
+  useEffect(() => setCurrentCard(card), [card]);
 
   const canRate = Boolean(viewerId && viewerId !== card.id);
   const isOwner = Boolean(viewerId && viewerId === card.id);

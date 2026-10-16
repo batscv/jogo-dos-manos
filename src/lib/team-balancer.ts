@@ -76,6 +76,8 @@ export function balanceTeams(players: PlayerCard[]): TeamDraftResult {
  */
 export function generateWhatsAppMessage(params: {
   matchDate: string;
+  maxPlayers?: number;
+  appUrl?: string;
   location: string;
   confirmedPlayers: { name: string; isPaid: boolean; isBrother: boolean; overall?: number; paidMonth?: string | null }[];
   waitingPlayers: { name: string; isPaid: boolean; isBrother: boolean }[];
@@ -93,7 +95,7 @@ export function generateWhatsAppMessage(params: {
   msg += `📅 *Data:* ${dateFormatted}\n`;
   msg += `📍 *Local:* ${params.location}\n\n`;
 
-  msg += `📋 *CONFIRMADOS (${params.confirmedPlayers.length}/14):*\n`;
+  msg += `📋 *CONFIRMADOS (${params.confirmedPlayers.length}/${params.maxPlayers ?? 14}):*\n`;
   params.confirmedPlayers.forEach((p, idx) => {
     const paidTag = p.isPaid ? (p.paidMonth ? `✅ Pago (${p.paidMonth})` : "✅ Pago") : "⚠️ Pendente";
     const brotherTag = p.isBrother ? " 🤝" : "";
@@ -121,7 +123,7 @@ export function generateWhatsAppMessage(params: {
   }
 
   msg += `\n⚠️ _Lembrete: Desistências após o horário limite contam como falta (no-show)._\n`;
-  msg += `📲 Acesse para acompanhar: ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}`;
+  msg += `📲 Acesse para acompanhar: ${params.appUrl || process.env.NEXT_PUBLIC_APP_URL || ""}`;
 
   return msg;
 }

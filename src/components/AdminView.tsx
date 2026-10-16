@@ -77,6 +77,7 @@ export function AdminView({
 
   useEffect(() => {
     setLocalCurrentMatch(currentMatch);
+    setDraftResult(null);
   }, [currentMatch]);
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export function AdminView({
   async function handleTogglePayment(userId: string, current: boolean, monthText?: string | null) {
     setLoadingId(userId);
     setActionError(null);
+    const previousProfile = localProfiles.find((p) => p.id === userId);
     const newStatus = !current;
     const expectedMonth = newStatus ? (monthText || getCurrentMonthText()) : null;
 
@@ -129,7 +131,7 @@ export function AdminView({
       // Reverte caso dê erro no banco
       setLocalProfiles((prev) =>
         prev.map((p) =>
-          p.id === userId ? { ...p, is_paid: current, paid_month: p.paid_month } : p
+          p.id === userId ? { ...p, is_paid: current, paid_month: previousProfile?.paid_month } : p
         )
       );
       setActionError(`Erro ao atualizar pagamento: ${res.error}`);
@@ -141,6 +143,7 @@ export function AdminView({
   }
 
   async function handleMonthChange(userId: string, newMonth: string) {
+    const previousProfiles = localProfiles;
     setLoadingId(userId);
     setActionError(null);
 
@@ -155,6 +158,7 @@ export function AdminView({
     setLoadingId(null);
 
     if (res?.error) {
+      setLocalProfiles(previousProfiles);
       setActionError(`Erro ao atualizar mês: ${res.error}`);
     } else {
       setActionMessage(`Mês de pagamento atualizado para ${newMonth}!`);
@@ -205,6 +209,12 @@ export function AdminView({
     setActionMessage(null);
     setLoadingId("creating-match");
 
+    for (const field of ["matchDate", "cutoffTime"]) {
+      const value = formData.get(field);
+      if (typeof value === "string" && value && !Number.isNaN(new Date(value).getTime())) {
+        formData.set(field, new Date(value).toISOString());
+      }
+    }
     const res = await createMatch(formData);
     setLoadingId(null);
 
