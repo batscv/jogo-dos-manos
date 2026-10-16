@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
     console.error("Session middleware failed", error);
     return Response.json({
       error: "session_initialization_failed",
-      reason: error instanceof Error ? error.message : "Unknown session error",
+      message: "Não foi possível iniciar a sessão. Tente novamente em instantes.",
     }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
