@@ -9,9 +9,10 @@ export const runtime = "edge";
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams?: { matchId?: string };
+  searchParams?: Promise<{ matchId?: string }>;
 }) {
-  const supabase = createClient();
+  const query = await searchParams;
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -47,8 +48,8 @@ export default async function AdminPage({
 
   // Seleciona a partida em foco:
   let currentMatch: Match | null = null;
-  if (searchParams?.matchId) {
-    currentMatch = allMatches.find((m) => m.id === searchParams.matchId) || null;
+  if (query?.matchId) {
+    currentMatch = allMatches.find((m) => m.id === query.matchId) || null;
   }
   if (!currentMatch && allMatches.length > 0) {
     currentMatch = allMatches.find((m) => m.status === "open") || allMatches[0];
@@ -81,8 +82,7 @@ export default async function AdminPage({
   const { data: rawLedger } = await supabase
     .from("financial_ledger")
     .select("*")
-    .order("entry_date", { ascending: false })
-    .limit(50);
+    .order("entry_date", { ascending: false });
 
   const ledgerEntries: FinancialLedger[] = rawLedger || [];
   const totalBalance = ledgerEntries.reduce((acc, item) => acc + Number(item.amount || 0), 0);

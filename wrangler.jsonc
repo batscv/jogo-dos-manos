@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jogo-dos-manos",
+  "pages_build_output_dir": ".vercel/output/static",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"]
+}

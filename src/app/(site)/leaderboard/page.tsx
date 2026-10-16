@@ -6,7 +6,7 @@ export const revalidate = 60; // Revalida a cada 60s
 export const runtime = "edge";
 
 export default async function LeaderboardPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Busca estatísticas agregadas
   const { data: statsRaw } = await supabase

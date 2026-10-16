@@ -2,7 +2,15 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  try {
+    return await updateSession(request);
+  } catch (error) {
+    console.error("Session middleware failed", error);
+    return Response.json({
+      error: "session_initialization_failed",
+      message: "Não foi possível iniciar a sessão. Tente novamente em instantes.",
+    }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export const config = {

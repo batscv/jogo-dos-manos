@@ -14,7 +14,7 @@ export interface RatingInput {
 }
 
 export async function submitRating(input: RatingInput) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -36,7 +36,7 @@ export async function submitRating(input: RatingInput) {
   ];
 
   for (const attr of attributes) {
-    if (typeof attr !== "number" || attr < 1 || attr > 99) {
+    if (!Number.isFinite(attr) || attr < 1 || attr > 99) {
       return { error: "Todos os atributos devem estar entre 1 e 99." };
     }
   }

@@ -5,32 +5,35 @@ import { PlayerCard } from "@/types/database";
 
 export const runtime = "edge";
 
-export default async function ProfilePage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   // 1. Busca carta do jogador na view view_player_cards
   const { data: cardData, error: cardError } = await supabase
     .from("view_player_cards")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
+  let fallbackProfile = null;
   if (cardError || !cardData) {
     // Se não encontrar na view, tenta no profiles para caso não tenha avaliações
     const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .maybeSingle();
 
+    fallbackProfile = profileData;
     if (!profileData) {
       notFound();
     }
   }
 
   const card: PlayerCard = cardData || {
-    id: params.id,
+    id: id,
     username: "jogador",
     full_name: "Jogador",
     avatar_url: null,
@@ -48,16 +51,17 @@ export default async function ProfilePage({ params }: { params: { id: string } }
     defense: 50,
     physical: 50,
     overall: 50,
+    ...fallbackProfile,
   };
 
   // 2. Busca se o usuário conectado já avaliou este jogador
   let existingRating = null;
-  if (user && user.id !== params.id) {
+  if (user && user.id !== id) {
     const { data: ratingData } = await supabase
       .from("player_ratings")
       .select("*")
       .eq("evaluator_id", user.id)
-      .eq("evaluated_id", params.id)
+      .eq("evaluated_id", id)
       .maybeSingle();
 
     existingRating = ratingData;
@@ -67,7 +71,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
   const { data: statsData } = await supabase
     .from("match_stats")
     .select("goals, assists, is_mvp, is_fair_play")
-    .eq("user_id", params.id);
+    .eq("user_id", id);
 
   const stats = (statsData || []).reduce(
     (acc, item) => {

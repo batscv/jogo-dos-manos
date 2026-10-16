@@ -8,9 +8,10 @@ export const runtime = "edge";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: { matchId?: string };
+  searchParams?: Promise<{ matchId?: string }>;
 }) {
-  const supabase = createClient();
+  const query = await searchParams;
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   let userProfile: Profile | null = null;
@@ -37,8 +38,8 @@ export default async function DashboardPage({
   // - Se não houver 'open', seleciona a mais recente criada.
   let currentMatch: Match | null = null;
 
-  if (searchParams?.matchId) {
-    currentMatch = allMatches.find((m) => m.id === searchParams.matchId) || null;
+  if (query?.matchId) {
+    currentMatch = allMatches.find((m) => m.id === query.matchId) || null;
   }
 
   if (!currentMatch && allMatches.length > 0) {

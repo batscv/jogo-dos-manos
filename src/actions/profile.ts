@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function updateAvatar(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -18,7 +18,7 @@ export async function updateAvatar(formData: FormData) {
   }
 
   // Validação básica de tipo de arquivo
-  if (!avatarFile.type.startsWith("image/")) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(avatarFile.type)) {
     return { error: "O arquivo precisa ser uma imagem (PNG, JPG, JPEG, WEBP)." };
   }
 
@@ -28,7 +28,7 @@ export async function updateAvatar(formData: FormData) {
   }
 
   const fileExt = avatarFile.name.split(".").pop() || "jpg";
-  const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+  const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
   // Upload para o bucket avatars
   const { error: uploadError } = await supabase.storage

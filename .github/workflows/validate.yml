@@ -1,0 +1,39 @@
+name: Validate application
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder
+      NEXT_PUBLIC_APP_URL: https://jogo-dos-manos.pages.dev
+      NEXT_TELEMETRY_DISABLED: '1'
+      VERCEL_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run pages:build
+      - name: Check Cloudflare runtime
+        run: |
+          npx --yes wrangler@4.151.0 pages dev .vercel/output/static --port 8788 > worker.log 2>&1 &
+          WORKER_PID=$!
+          trap 'kill "$WORKER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8788/login > /tmp/login.html; then
+              grep -q 'Bem-vindo' /tmp/login.html
+              exit 0
+            fi
+            sleep 1
+          done
+          cat worker.log
+          exit 1

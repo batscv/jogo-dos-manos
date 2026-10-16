@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentMonthText } from "@/lib/utils";
 
 async function verifyAdmin() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -96,12 +96,15 @@ export async function createMatch(formData: FormData) {
       return { error: "Informe a data do jogo e o horário limite de corte." };
     }
 
+    if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 100) return { error: "O número de jogadores deve estar entre 2 e 100." };
     const matchDateObj = new Date(matchDate);
     const cutoffTimeObj = new Date(cutoffTime);
 
     if (isNaN(matchDateObj.getTime()) || isNaN(cutoffTimeObj.getTime())) {
       return { error: "Formato de data ou horário inválido." };
     }
+
+    if (cutoffTimeObj >= matchDateObj) return { error: "O horário limite deve ser anterior ao jogo." };
 
     const { data: result, error } = await supabase.rpc("admin_create_match", {
       p_match_date: matchDateObj.toISOString(),
@@ -235,7 +238,7 @@ export async function addFinancialEntry(formData: FormData) {
     const category = formData.get("category") as string || "geral";
     const entryDate = formData.get("entryDate") as string || new Date().toISOString().split("T")[0];
 
-    if (!description || isNaN(amount)) {
+    if (!description?.trim() || !Number.isFinite(amount) || amount === 0) {
       return { error: "Descrição e valor válido são obrigatórios." };
     }
 
